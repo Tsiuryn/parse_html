@@ -1,232 +1,309 @@
-package com.example.parsehtml
 
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Layout
+import android.text.Layout.Alignment
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.AlignmentSpan
+import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.text.style.URLSpan
 import android.text.style.UnderlineSpan
+import android.view.View
 import androidx.core.text.HtmlCompat
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import java.lang.Exception
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
-
-// Не поддерживает списки (нумерованные и с точками), ссылки, шрифты. Будет отображать через - HtmlCompat.fromHtml
-
+/**
+ * class [GenHtmlCompat] - class for converting html to Spanned interface
+ */
 class GenHtmlCompat {
-
     companion object {
-        private val unprocessedTags = mutableMapOf(
-            "<ul>" to "</ul>",
-            "<ol>" to "</ol>",
-            "href" to "http"
-        )
 
-        fun fromHtml(htmlText: String): Spanned {
-            unprocessedTags.keys.forEach { key ->
-                val value = unprocessedTags[key] ?: ""
-                if (htmlText.contains(key) && htmlText.contains(value)) {
-                    return HtmlCompat.fromHtml(htmlText, HtmlCompat.FROM_HTML_MODE_COMPACT)
+        /**
+         * method [fromHtml] - for converting html to Spanned interface
+         * accepts htmlText and a callback function [onTapLink] to send an event when a link is clicked
+         */
+        fun fromHtml(htmlText: String, onTapLink: ((url: String) -> Unit)? = null): Spanned {
+            return try {
+                val document = Jsoup.parse(htmlText)
+                var result = SpannableStringBuilder()
+                val elements = document.allElements
+                elements.forEach { element ->
+                    result = result.append(setUpSpanned(element, onTapLink))
                 }
-            }
-            val getListSpan = getListSpan(value = htmlText)
 
+                result
+            }catch (_ : Exception){
+                HtmlCompat.fromHtml(htmlText, HtmlCompat.FROM_HTML_MODE_COMPACT)
+            }
+        }
+
+        private fun setUpSpanned(
+            element: Element,
+            onTapLink: ((url: String) -> Unit)?
+        ): SpannableStringBuilder {
+            val ownText = element.ownText()
             var result = SpannableStringBuilder()
+            if (ownText.isNotEmpty() || ownText.isNotBlank()) {
+                val parserResult = ElementParser(element).parse()
+                result.append(parserResult.value)
+                val length = parserResult.value.length
+                if (parserResult.url != null) {
+                    result = createSpannableTextWithLink(
+                        linkText = parserResult.value,
+                        url = parserResult.url,
+                        onTapLink = onTapLink,
+                    )
+                }
 
-            getListSpan.forEach {
-                result = setUpSpanned(ParserHtmlValue.getValue(it), result)
+                if (parserResult.types.contains(TypeValue.BOLD)) {
+                    result.setSpan(
+                        StyleSpan(Typeface.BOLD),
+                        length - result.length,
+                        length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+
+                if (parserResult.types.contains(TypeValue.ITALIC)) {
+                    result.setSpan(
+                        StyleSpan(Typeface.ITALIC),
+                        length - result.length,
+                        length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+
+                if (parserResult.types.contains(TypeValue.UNDERLINE)) {
+                    result.setSpan(
+                        UnderlineSpan(),
+                        length - result.length,
+                        length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+
+                result.setSpan(
+                    AbsoluteSizeSpan(parserResult.textSize.toInt(), true),
+                    length - result.length,
+                    length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+
+                result.setSpan(
+                    ForegroundColorSpan(parserResult.color),
+                    length - result.length,
+                    length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+
+                result.setSpan(
+                    AlignmentSpan.Standard(parserResult.alignment),
+                    0,
+                    length,
+                    SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
 
-            setUpAlignText(result, htmlText)
 
             return result
         }
 
-        private fun setUpSpanned(
-            value: ResultValue,
-            result: SpannableStringBuilder
+        private fun createSpannableTextWithLink(
+            linkText: String,
+            url: String,
+            onTapLink: ((url: String) -> Unit)?
         ): SpannableStringBuilder {
-            val currentValue = "${value.value} "
-            val currentResult = result.append(currentValue)
-            val length = currentResult.length
-
-            if (value.types.contains(TypeValue.BOLD)) {
-                currentResult.setSpan(
-                    StyleSpan(Typeface.BOLD),
-                    length - currentValue.length,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+            val spannableString = SpannableStringBuilder(linkText)
+            val clickableSpan = object : ClickableSpan() {
+                override fun onClick(widget: View) {
+                    onTapLink?.invoke(url)
+                }
             }
-
-            if (value.types.contains(TypeValue.ITALIC)) {
-                currentResult.setSpan(
-                    StyleSpan(Typeface.ITALIC),
-                    length - currentValue.length,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-
-            if (value.types.contains(TypeValue.UNDERLINE)) {
-                currentResult.setSpan(
-                    UnderlineSpan(),
-                    length - currentValue.length,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-
-            currentResult.setSpan(
-                AbsoluteSizeSpan(value.textSize.toInt(), true),
-                length - currentValue.length,
-                length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            currentResult.setSpan(
-                ForegroundColorSpan(value.color),
-                length - currentValue.length,
-                length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            return currentResult
-        }
-
-        private fun setUpAlignText(
-            value: SpannableStringBuilder,
-            htmlText: String
-        ): SpannableStringBuilder {
-            value.setSpan(
-                AlignmentSpan.Standard(parseAlignmentFromStyleAttribute(htmlText)),
+            spannableString.setSpan(
+                clickableSpan,
                 0,
-                value.length,
-                SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
+                linkText.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            return value
+            spannableString.setSpan(
+                URLSpan(url),
+                0,
+                linkText.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            return spannableString
+        }
+    }
+
+    /**
+     * [ElementParser] class to convert [Element] library class [Jsoup] to class [ResultValue];
+     */
+    private class ElementParser(
+        private val element: Element
+    ) {
+        private val bold = "strong"
+        private val italic = "em"
+        private val underline = "ins"
+        private val hrefAttr = "href"
+        private var url: String? = null
+        private var isList: Boolean = false
+
+        private val types = mutableListOf<TypeValue>()
+        private var elementStyle: String? = null
+        private var parentElementStyle: String? = null
+
+        /**
+         * Entry point to parse [Element];
+         */
+        fun parse(): ResultValue {
+            getTypeValue(element)
+            checkLink(element)
+            val color: Int = parseColorFromStyleAttribute(elementStyle)
+            val textSize = getTextSize(elementStyle)
+            var value = element.ownText() + " "
+            if(isList){
+                value = "\n   ● $value"
+            }
+
+            val style  = if(elementStyleHasAlignment) elementStyle else parentElementStyle
+
+            return ResultValue(
+                value = value,
+                types = types,
+                textSize = textSize,
+                color = color,
+                alignment = parseAlignmentFromStyleAttribute(style),
+                url = url
+            )
         }
 
-        private fun parseAlignmentFromStyleAttribute(htmlText: String): Layout.Alignment {
+        private fun getTypeValue(element: Element) {
+            val tag = element.tagName()
+            setUpTypeValue(tag)
+            if (tag == "span" || tag == "li" || tag == "p") {
+                elementStyle = element.attr("style")
+                val parentTagName = element.parent()?.tagName()
+                if(tag == "li" || parentTagName == "li"){
+                    isList = true
+                }
+                if(parentTagName == "p"){
+                    parentElementStyle = element.parent()?.attr("style")
+                }
+
+                return
+            }
+            val parent = element.parent()
+            if (parent != null) {
+                getTypeValue(parent)
+            }
+        }
+
+        private val elementStyleHasAlignment: Boolean
+            get() {
+                val regex = Regex("text-align:\\s*(\\w+);")
+                val matchResult = regex.find(elementStyle ?: "")
+
+                return matchResult != null && matchResult.groupValues.size == 2
+            }
+
+        private fun parseAlignmentFromStyleAttribute(style: String?): Alignment {
+            if(style == null) return  Alignment.ALIGN_NORMAL
             val regex = Regex("text-align:\\s*(\\w+);")
-            val matchResult = regex.find(htmlText)
+            val matchResult = regex.find(style)
 
             return if (matchResult != null && matchResult.groupValues.size == 2) {
                 when (matchResult.groupValues[1]) {
-                    "left" -> Layout.Alignment.ALIGN_NORMAL
-                    "center" -> Layout.Alignment.ALIGN_CENTER
-                    "right" -> Layout.Alignment.ALIGN_OPPOSITE
-                    else -> Layout.Alignment.ALIGN_NORMAL
+                    "left" -> Alignment.ALIGN_NORMAL
+                    "center" -> Alignment.ALIGN_CENTER
+                    "right" -> Alignment.ALIGN_OPPOSITE
+                    else -> Alignment.ALIGN_NORMAL
                 }
             } else {
-                Layout.Alignment.ALIGN_NORMAL
+                Alignment.ALIGN_NORMAL
             }
         }
 
-        private fun getListSpan(value: String): List<String> {
-            val regex = Regex("<span[^>]*>.*?</span>")
-            val spanMatches = regex.findAll(value)
+        private fun getTextSize(style: String?): Float {
+            val constTextSize = 14f
+            if (style.isNullOrEmpty()) return constTextSize
+            val pattern: Pattern = Pattern.compile("font-size:\\s*(\\d+)px")
 
-            val spanList = mutableListOf<String>()
+            val startIndex: Int = style.indexOf("font-size: ")
+            val endIndex: Int = style.indexOf("px", startIndex)
+            if (startIndex != -1 && endIndex != -1) {
 
-            for (match in spanMatches) {
-                spanList.add(match.value)
+                val matcher: Matcher = pattern.matcher(style)
+                if (matcher.find()) {
+                    return matcher.group(1)?.toFloat() ?: constTextSize
+                }
             }
 
-            return spanList
+            return constTextSize
         }
 
-    }
+        private fun parseColorFromStyleAttribute(style: String?): Int {
+            if (style == null) return Color.BLACK
+            if (!style.contains("rgb(")) return parseNormalColor(style)
+            val regex = Regex("color: rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)")
+            val matchResult = regex.find(style)
 
-    private class ParserHtmlValue{
-        companion object{
-            private val bold = Pair("<strong>", "</strong>")
-            private val italic = Pair("<em>", "</em>")
-            private val underline = Pair("<ins>", "</ins>")
-
-            fun getValue(htmlText: String): ResultValue{
-                val listTypes = mutableListOf<TypeValue>()
-                var value: String = parseValue(htmlText)
-                if (value.contains(bold.first)) {
-                    value = value.replace(bold.first, "").replace(bold.second, "")
-                    listTypes.add(TypeValue.BOLD)
-                }
-                if (value.contains(italic.first)) {
-                    value = value.replace(italic.first, "").replace(italic.second, "")
-                    listTypes.add(TypeValue.ITALIC)
-                }
-                if (value.contains(underline.first)) {
-                    value = value.replace(underline.first, "").replace(underline.second, "")
-                    listTypes.add(TypeValue.UNDERLINE)
-                }
-
-                return ResultValue(
-                    value,
-                    types = listTypes,
-                    textSize = getTextSize(htmlText),
-                    color = parseColorFromStyleAttribute(htmlText)
+            return if (matchResult != null && matchResult.groupValues.size == 4) {
+                Color.rgb(
+                    matchResult.groupValues[1].toInt(),
+                    matchResult.groupValues[2].toInt(),
+                    matchResult.groupValues[3].toInt()
                 )
+            } else {
+                Color.BLACK
             }
+        }
 
-            private fun parseValue(htmlText: String): String {
-                val startTextToParse = ">"
-                val endTextToParse = "</span>"
-                val startIndex = htmlText.indexOf(startTextToParse) + 1
-                val endIndex = htmlText.indexOf(endTextToParse)
-                return htmlText.substring(startIndex, endIndex)
+        private fun parseNormalColor(style: String): Int {
+            val colorRegex = Regex("color:[^;]+;")
+            val colorMatch = colorRegex.find(style) ?: return Color.BLACK
+            val colorCode =
+                colorMatch.value.substringAfter("color:").trimEnd(';').replace(" ", "")
+
+            return try {
+                Color.parseColor(colorCode)
+            } catch (e: IllegalArgumentException) {
+                Color.BLACK
             }
+        }
 
-            private fun getTextSize(htmlString: String?): Float {
-                val constTextSize = 14f
-                if (htmlString.isNullOrEmpty()) return constTextSize
-                val pattern: Pattern = Pattern.compile("font-size:\\s*(\\d+)px")
-
-                val startIndex: Int = htmlString.indexOf("style=")
-                val endIndex: Int = htmlString.indexOf(">", startIndex)
-                if (startIndex != -1 && endIndex != -1) {
-                    val styleAttribute: String = htmlString.substring(startIndex, endIndex)
-
-                    val matcher: Matcher = pattern.matcher(styleAttribute)
-                    if (matcher.find()) {
-                        return matcher.group(1)?.toFloat() ?: constTextSize
-                    }
+        private fun checkLink(element: Element) {
+            val tag = element.tagName()
+            if(tag == "a"){
+                url = element.attr(hrefAttr)
+                return
+            }
+            if (tag == "span") {
+                val parent = element.parent()
+                if (parent?.tagName() == "a") {
+                    url = parent.attr(hrefAttr)
                 }
-
-                return constTextSize
+                return
             }
-
-            private fun parseColorFromStyleAttribute(style: String): Int {
-                if (!style.contains("rgb(")) return parseNormalColor(style)
-                val regex = Regex("color: rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)")
-                val matchResult = regex.find(style)
-
-                return if (matchResult != null && matchResult.groupValues.size == 4) {
-                    Color.rgb(
-                        matchResult.groupValues[1].toInt(),
-                        matchResult.groupValues[2].toInt(),
-                        matchResult.groupValues[3].toInt()
-                    )
-                } else {
-                    Color.BLACK
-                }
+            val parent = element.parent()
+            if (parent != null) {
+                checkLink(parent)
             }
+        }
 
-            private fun parseNormalColor(style: String): Int {
-                val colorRegex = Regex("color:[^;]+;")
-                val colorMatch = colorRegex.find(style)
-                val colorCode =
-                    colorMatch?.value?.substringAfter("color:")?.trimEnd(';')?.replace(" ", "")
-
-                return try {
-                    Color.parseColor(colorCode)
-                } catch (e: IllegalArgumentException) {
-                    Color.BLACK
-                }
+        private fun setUpTypeValue(tag: String) {
+            when (tag) {
+                bold -> types.add(TypeValue.BOLD)
+                italic -> types.add(TypeValue.ITALIC)
+                underline -> types.add(TypeValue.UNDERLINE)
             }
         }
     }
@@ -235,10 +312,12 @@ class GenHtmlCompat {
         val value: String,
         val types: List<TypeValue>,
         val textSize: Float,
-        val color: Int
+        val color: Int,
+        val alignment: Layout.Alignment,
+        val url: String?
     ) {
         override fun toString(): String {
-            return "ResultValue(value='$value', types=$types, textSize=$textSize, color=$color)"
+            return "ResultValue(value='$value', types=$types, textSize=$textSize, color=$color, url=$url)"
         }
     }
 
@@ -246,4 +325,3 @@ class GenHtmlCompat {
         BOLD, UNDERLINE, ITALIC
     }
 }
-
