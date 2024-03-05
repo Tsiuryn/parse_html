@@ -16,22 +16,12 @@ package com.example.parsehtml
 //<p></p>
 //    """
 
-//    val html = """
-//        <p style="text-align:left;"><span style="color: rgb(255,0,0);font-size: 14px;">Имеется</span> <span style="color: rgb(67,28,249);font-size: 18px;"><em>активный</em></span> <span style="color: rgb(76,255,63);font-size: 11px;"><strong><em>пакет</em></strong></span> <span style="color: rgb(188,13,212);font-size: 30px;"><strong><em><ins>услуг</ins></em></strong></span></p>
-//<p></p>
-//<ul>
-//<li><span style="color: rgb(205,31,230);font-size: 18px;">first</span></li>
-//<li><span style="color: rgb(205,31,230);font-size: 16px;">second</span></li>
-//<li><span style="color: rgb(205,31,230);font-size: 16px;">third</span></li>
-//</ul>
-//<p></p>
-//    """
 
-//    val html = """
-//    <p style="text-align:left;"><span style="color: rgb(255,0,0);font-size: 18px;">Имеется</span> <span style="color: rgb(67,28,249);font-size: 18px;"><em>активный</em></span> <span style="color: rgb(76,255,63);font-size: 11px;"><strong><em>пакет</em></strong></span> <span style="color: rgb(188,13,212);font-size: 30px;"><strong><em><ins>услуг</ins></em></strong></span></p>
-//<p><a href="https://translate.google.by/?sl=ru&tl=en&text=%D0%BA%D0%B0%D1%80%D1%82%D0%B0%20%D0%BD%D0%B5%D0%BE%D0%B1%D1%80%D0%B0%D0%B1%D0%B0%D1%82%D1%8B%D0%B2%D0%B0%D0%B5%D0%BC%D1%8B%D1%85%20%D1%82%D1%8D%D0%B3%D0%BE%D0%B2&op=translate" target="_blank"><span style="color: rgb(205,31,230);font-size: 16px;">translator</span></a>&nbsp;</p>
-//<p></p>
-//    """
+    val html = """
+    <p style="text-align:left;"><span style="color: rgb(255,0,0);font-size: 18px;">Имеется</span> <span style="color: rgb(67,28,249);font-size: 18px;"><em>активный</em></span> <span style="color: rgb(76,255,63);font-size: 11px;"><strong><em>пакет</em></strong></span> <span style="color: rgb(188,13,212);font-size: 30px;"><strong><em><ins>услуг</ins></em></strong></span></p>
+<p><a href="https://translate.google.by/?sl=ru&tl=en&text=%D0%BA%D0%B0%D1%80%D1%82%D0%B0%20%D0%BD%D0%B5%D0%BE%D0%B1%D1%80%D0%B0%D0%B1%D0%B0%D1%82%D1%8B%D0%B2%D0%B0%D0%B5%D0%BC%D1%8B%D1%85%20%D1%82%D1%8D%D0%B3%D0%BE%D0%B2&op=translate" target="_blank"><span style="color: rgb(205,31,230);font-size: 16px;">translator</span></a>&nbsp;</p>
+<p></p>
+    """
 //
 //    val html = """
 //        <p style="text-align:right;"><span style="color: rgb(255,0,0);font-size: 14px;">Имеется</span> <span style="color: rgb(67,28,249);font-size: 18px;"><em>активный</em></span> <span style="color: rgb(76,255,63);font-size: 11px;"><strong><em>пакет</em></strong></span> <span style="color: rgb(188,13,212);font-size: 30px;"><strong><em><ins>услуг</ins></em></strong></span></p>
@@ -46,9 +36,15 @@ package com.example.parsehtml
 //    """
 
 // Ссылки
-val html = """
-        <p style="text-align:center;"><span style="color: rgb(247,2,2);font-size: 11px;">Text example </span><a href="https://www.google.com/" target="_blank"><span style="color: rgb(247,2,2);font-size: 16px;">google</span></a><span style="color: rgb(247,2,2);font-size: 11px;"> </span></p>\n
-    """
+//val html = """
+//        <p style="text-align:center;"><span style="color: rgb(247,2,2);font-size: 11px;">Text example </span><a href="https://www.google.com/" target="_blank"><span style="color: rgb(247,2,2);font-size: 16px;">google</span></a><span style="color: rgb(247,2,2);font-size: 11px;"> </span></p>\n
+//    """
+//val html = "<p style=\\\"text-align:left;\\\">Отправьте <a href=\\\"sms:2323\\\" target=\\\"_blank\\\">sms</a> или пройдите регистрацию на <a href=\\\"https://www.google.com/\\\" target=\\\"_blank\\\">сайте</a> или просто <a href=\\\"tel:375291111111\\\" target=\\\"_blank\\\">наберите</a>&nbsp;&nbsp;</p>\\n<ul>\\n<li style=\\\"text-align:left;\\\">Первый&nbsp;</li>\\n<li style=\\\"text-align:left;\\\"><span style=\\\"color: rgb(59,228,189);font-size: 30px;\\\">Второй</span></li>\\n<li>Третий</li>\\n</ul>\\n"
+
+//val html = """
+//    <p style=\"text-align:left;\">Link example <a href=\"https://yandex.com/\" target=\"_blank\">yandex</a> and some <a href=\"sms:23222\" target=\"_blank\">sms</a> example <a href=\"tel:+375297998887\" target=\"_blank\">phone</a>&nbsp;</p>\n<p></p>\n
+//"""
+
 
         // Списки
 //        val html = """

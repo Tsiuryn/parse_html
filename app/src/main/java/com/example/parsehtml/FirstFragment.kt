@@ -1,5 +1,6 @@
 package com.example.parsehtml
 
+import GenHtmlCompat
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -31,11 +32,11 @@ class FirstFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        binding.textviewFirst.text = GenHtmlCompat.fromHtml(html){ url ->
+        binding.textviewFirst.text = GenHtmlCompat(html).fromHtml{ url ->
             try {
                 requireActivity().startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             } catch (_: Exception) {
-                Log.e(this.toString(), "Url is incorrect", )
+                Log.e(this.toString(), "$url is incorrect ", )
             }
         }
 

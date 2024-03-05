@@ -1,4 +1,3 @@
-
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Layout
@@ -17,6 +16,7 @@ import android.view.View
 import androidx.core.text.HtmlCompat
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 import java.lang.Exception
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -24,131 +24,152 @@ import java.util.regex.Pattern
 /**
  * class [GenHtmlCompat] - class for converting html to Spanned interface
  */
-class GenHtmlCompat {
-    companion object {
+class GenHtmlCompat(
+    private val htmlText: String
+) {
 
-        /**
-         * method [fromHtml] - for converting html to Spanned interface
-         * accepts htmlText and a callback function [onTapLink] to send an event when a link is clicked
-         */
-        fun fromHtml(htmlText: String, onTapLink: ((url: String) -> Unit)? = null): Spanned {
-            return try {
-                val document = Jsoup.parse(htmlText)
-                var result = SpannableStringBuilder()
-                val elements = document.allElements
-                elements.forEach { element ->
-                    result = result.append(setUpSpanned(element, onTapLink))
-                }
-
-                result
-            }catch (_ : Exception){
-                HtmlCompat.fromHtml(htmlText, HtmlCompat.FROM_HTML_MODE_COMPACT)
-            }
-        }
-
-        private fun setUpSpanned(
-            element: Element,
-            onTapLink: ((url: String) -> Unit)?
-        ): SpannableStringBuilder {
-            val ownText = element.ownText()
+    /**
+     * method [fromHtml] - for converting html to Spanned interface
+     * accepts htmlText and a callback function [onTapLink] to send an event when a link is clicked
+     */
+    fun fromHtml(onTapLink: ((url: String) -> Unit)? = null): Spanned {
+        return try {
+            val document = Jsoup.parse(htmlText)
             var result = SpannableStringBuilder()
-            if (ownText.isNotEmpty() || ownText.isNotBlank()) {
-                val parserResult = ElementParser(element).parse()
-                result.append(parserResult.value)
-                val length = parserResult.value.length
-                if (parserResult.url != null) {
-                    result = createSpannableTextWithLink(
-                        linkText = parserResult.value,
-                        url = parserResult.url,
-                        onTapLink = onTapLink,
-                    )
-                }
-
-                if (parserResult.types.contains(TypeValue.BOLD)) {
-                    result.setSpan(
-                        StyleSpan(Typeface.BOLD),
-                        length - result.length,
-                        length,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-
-                if (parserResult.types.contains(TypeValue.ITALIC)) {
-                    result.setSpan(
-                        StyleSpan(Typeface.ITALIC),
-                        length - result.length,
-                        length,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-
-                if (parserResult.types.contains(TypeValue.UNDERLINE)) {
-                    result.setSpan(
-                        UnderlineSpan(),
-                        length - result.length,
-                        length,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-
-                result.setSpan(
-                    AbsoluteSizeSpan(parserResult.textSize.toInt(), true),
-                    length - result.length,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
-                result.setSpan(
-                    ForegroundColorSpan(parserResult.color),
-                    length - result.length,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
-                result.setSpan(
-                    AlignmentSpan.Standard(parserResult.alignment),
-                    0,
-                    length,
-                    SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+            val parent = document.childNodes().first()
+            if (parent is Element) {
+                getFinalElement(parent)
             }
 
-
-            return result
-        }
-
-        private fun createSpannableTextWithLink(
-            linkText: String,
-            url: String,
-            onTapLink: ((url: String) -> Unit)?
-        ): SpannableStringBuilder {
-            val spannableString = SpannableStringBuilder(linkText)
-            val clickableSpan = object : ClickableSpan() {
-                override fun onClick(widget: View) {
-                    onTapLink?.invoke(url)
-                }
+            textElements.forEach{ node ->
+                result = result.append(setUpSpanned(element = node, onTapLink))
             }
-            spannableString.setSpan(
-                clickableSpan,
-                0,
-                linkText.length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            spannableString.setSpan(
-                URLSpan(url),
-                0,
-                linkText.length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            return spannableString
+
+            result
+        } catch (_: Exception) {
+            HtmlCompat.fromHtml(htmlText, HtmlCompat.FROM_HTML_MODE_COMPACT)
         }
+    }
+
+    private val textElements = mutableListOf<Pair<Element, TextNode>>()
+
+    private fun getFinalElement(parent: Element) {
+        val children = parent.childNodes()
+        if (children.isEmpty()) {
+            return
+        }
+
+        children.forEach { element ->
+            if (element is TextNode) {
+                textElements.add(parent to element)
+            } else if (element is Element) {
+                getFinalElement(element)
+            }
+        }
+    }
+
+    private fun setUpSpanned(
+        element: Pair<Element, TextNode>,
+        onTapLink: ((url: String) -> Unit)?
+    ): SpannableStringBuilder {
+
+        var result = SpannableStringBuilder()
+
+        val parserResult = ElementParser(parentElement = element.first, textNode = element.second).parse()
+        result.append(parserResult.value)
+        val length = parserResult.value.length
+        if (parserResult.url != null) {
+            result = createSpannableTextWithLink(
+                linkText = parserResult.value,
+                url = parserResult.url,
+                onTapLink = onTapLink,
+            )
+        }
+
+        if (parserResult.types.contains(TypeValue.BOLD)) {
+            result.setSpan(
+                StyleSpan(Typeface.BOLD),
+                length - result.length,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        if (parserResult.types.contains(TypeValue.ITALIC)) {
+            result.setSpan(
+                StyleSpan(Typeface.ITALIC),
+                length - result.length,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        if (parserResult.types.contains(TypeValue.UNDERLINE)) {
+            result.setSpan(
+                UnderlineSpan(),
+                length - result.length,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        result.setSpan(
+            AbsoluteSizeSpan(parserResult.textSize.toInt(), true),
+            length - result.length,
+            length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        result.setSpan(
+            ForegroundColorSpan(parserResult.color),
+            length - result.length,
+            length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        result.setSpan(
+            AlignmentSpan.Standard(parserResult.alignment),
+            0,
+            length,
+            SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+
+        return result
+    }
+
+    private fun createSpannableTextWithLink(
+        linkText: String,
+        url: String,
+        onTapLink: ((url: String) -> Unit)?
+    ): SpannableStringBuilder {
+        val spannableString = SpannableStringBuilder(linkText)
+        val clickableSpan = object : ClickableSpan() {
+            override fun onClick(widget: View) {
+                onTapLink?.invoke(url)
+            }
+        }
+        spannableString.setSpan(
+            clickableSpan,
+            0,
+            linkText.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannableString.setSpan(
+            URLSpan(url),
+            0,
+            linkText.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return spannableString
     }
 
     /**
      * [ElementParser] class to convert [Element] library class [Jsoup] to class [ResultValue];
      */
     private class ElementParser(
-        private val element: Element
+        private val parentElement: Element,
+        private val textNode: TextNode
     ) {
         private val bold = "strong"
         private val italic = "em"
@@ -165,16 +186,16 @@ class GenHtmlCompat {
          * Entry point to parse [Element];
          */
         fun parse(): ResultValue {
-            getTypeValue(element)
-            checkLink(element)
+            getTypeValue(parentElement)
+            checkLink(parentElement)
             val color: Int = parseColorFromStyleAttribute(elementStyle)
             val textSize = getTextSize(elementStyle)
-            var value = element.ownText() + " "
-            if(isList){
+            var value = textNode.text() + " "
+            if (isList) {
                 value = "\n   ● $value"
             }
 
-            val style  = if(elementStyleHasAlignment) elementStyle else parentElementStyle
+            val style = if (elementStyleHasAlignment) elementStyle else parentElementStyle
 
             return ResultValue(
                 value = value,
@@ -192,10 +213,10 @@ class GenHtmlCompat {
             if (tag == "span" || tag == "li" || tag == "p") {
                 elementStyle = element.attr("style")
                 val parentTagName = element.parent()?.tagName()
-                if(tag == "li" || parentTagName == "li"){
+                if (tag == "li" || parentTagName == "li") {
                     isList = true
                 }
-                if(parentTagName == "p"){
+                if (parentTagName == "p") {
                     parentElementStyle = element.parent()?.attr("style")
                 }
 
@@ -216,7 +237,7 @@ class GenHtmlCompat {
             }
 
         private fun parseAlignmentFromStyleAttribute(style: String?): Alignment {
-            if(style == null) return  Alignment.ALIGN_NORMAL
+            if (style == null) return Alignment.ALIGN_NORMAL
             val regex = Regex("text-align:\\s*(\\w+);")
             val matchResult = regex.find(style)
 
@@ -282,7 +303,7 @@ class GenHtmlCompat {
 
         private fun checkLink(element: Element) {
             val tag = element.tagName()
-            if(tag == "a"){
+            if (tag == "a") {
                 url = element.attr(hrefAttr)
                 return
             }
